@@ -14,16 +14,341 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      parking_lots: {
+        Row: {
+          address: string
+          badge: string | null
+          co2_saved_kg: number
+          created_at: string
+          distance_km: number
+          drive_time_min: number
+          hourly_price: number
+          id: string
+          latitude: number | null
+          longitude: number | null
+          map_x: number
+          map_y: number
+          modal: string
+          modal_label: string
+          modal_time_min: number
+          name: string
+          rating: number
+          total_spots: number
+        }
+        Insert: {
+          address: string
+          badge?: string | null
+          co2_saved_kg?: number
+          created_at?: string
+          distance_km: number
+          drive_time_min: number
+          hourly_price: number
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          map_x?: number
+          map_y?: number
+          modal: string
+          modal_label: string
+          modal_time_min: number
+          name: string
+          rating?: number
+          total_spots: number
+        }
+        Update: {
+          address?: string
+          badge?: string | null
+          co2_saved_kg?: number
+          created_at?: string
+          distance_km?: number
+          drive_time_min?: number
+          hourly_price?: number
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          map_x?: number
+          map_y?: number
+          modal?: string
+          modal_label?: string
+          modal_time_min?: number
+          name?: string
+          rating?: number
+          total_spots?: number
+        }
+        Relationships: []
+      }
+      parking_spots: {
+        Row: {
+          code: string
+          id: string
+          is_available: boolean
+          lot_id: string
+          spot_type: string
+        }
+        Insert: {
+          code: string
+          id?: string
+          is_available?: boolean
+          lot_id: string
+          spot_type?: string
+        }
+        Update: {
+          code?: string
+          id?: string
+          is_available?: boolean
+          lot_id?: string
+          spot_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parking_spots_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          method: string
+          reservation_id: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          method?: string
+          reservation_id?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          method?: string
+          reservation_id?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      reservations: {
+        Row: {
+          created_at: string
+          destination: string
+          end_at: string | null
+          id: string
+          lot_id: string
+          spot_id: string | null
+          start_at: string
+          status: string
+          total_price: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          destination: string
+          end_at?: string | null
+          id?: string
+          lot_id: string
+          spot_id?: string | null
+          start_at?: string
+          status?: string
+          total_price?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          destination?: string
+          end_at?: string | null
+          id?: string
+          lot_id?: string
+          spot_id?: string | null
+          start_at?: string
+          status?: string
+          total_price?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservations_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservations_spot_id_fkey"
+            columns: ["spot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_spots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reviews: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          lot_id: string
+          rating: number
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          lot_id: string
+          rating: number
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          lot_id?: string
+          rating?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      route_history: {
+        Row: {
+          co2_saved_kg: number
+          created_at: string
+          destination: string
+          distance_km: number | null
+          id: string
+          modal: string
+          money_saved: number
+          origin: string | null
+          reservation_id: string | null
+          total_time_min: number
+          user_id: string
+        }
+        Insert: {
+          co2_saved_kg?: number
+          created_at?: string
+          destination: string
+          distance_km?: number | null
+          id?: string
+          modal: string
+          money_saved?: number
+          origin?: string | null
+          reservation_id?: string | null
+          total_time_min: number
+          user_id: string
+        }
+        Update: {
+          co2_saved_kg?: number
+          created_at?: string
+          destination?: string
+          distance_km?: number | null
+          id?: string
+          modal?: string
+          money_saved?: number
+          origin?: string | null
+          reservation_id?: string | null
+          total_time_min?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_history_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +475,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const
