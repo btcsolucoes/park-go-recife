@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import ParkingZeroApp from "@/components/ParkingZeroApp";
 
 export const Route = createFileRoute("/")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Parking Zero — Estacione para não dirigir" },
