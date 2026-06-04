@@ -163,51 +163,74 @@ export function useUserMetrics(userId: string | null) {
   return { metrics, loading, reload: load };
 }
 
-export async function createTrip(opts: {
+export interface Ticket {
+  id: string;
+  code: string;
+  fullName: string;
+  plate: string;
+  destination: string;
+  arrivalAt: string;
+  status: string;
+  lotName: string;
+  lotAddress: string;
+}
+
+function generateTicketCode() {
+  const part = () => Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `PZ-${part()}-${part()}`;
+}
+
+export async function createTicket(opts: {
   userId: string;
+  fullName: string;
+  plate: string;
   option: ParkingOption;
   destination: string;
-}) {
-  const { userId, option, destination } = opts;
-  const startAt = new Date();
-  const endAt = new Date(startAt.getTime() + 2 * 60 * 60 * 1000);
+  arrivalAt?: Date;
+}): Promise<Ticket> {
+  const { userId, fullName, plate, option, destination } = opts;
+  const arrivalAt = opts.arrivalAt ?? new Date(Date.now() + 20 * 60 * 1000);
+  const code = generateTicketCode();
 
-  const { data: reservation, error: resErr } = await supabase
-    .from("reservations")
+  const { data, error } = await supabase
+    .from("tickets")
     .insert({
       user_id: userId,
       lot_id: option.id,
+      code,
       destination,
-      start_at: startAt.toISOString(),
-      end_at: endAt.toISOString(),
-      status: "active",
-      total_price: option.price,
+      full_name: fullName,
+      plate: plate.toUpperCase(),
+      arrival_at: arrivalAt.toISOString(),
+      status: "awaiting_arrival",
     })
     .select()
     .single();
-  if (resErr) throw resErr;
+  if (error) throw error;
 
+  // Track environmental/financial impact (no payment created)
   await supabase.from("route_history").insert({
     user_id: userId,
-    reservation_id: reservation.id,
     origin: "Localização atual",
     destination,
     modal: option.modal,
     total_time_min: option.totalTime,
     distance_km: option.distanceKm,
     co2_saved_kg: option.co2Saved,
-    money_saved: Math.max(0, 35 - option.price), // vs. estacionar no destino R$35
+    money_saved: Math.max(0, 35 - option.price),
   });
 
-  await supabase.from("payments").insert({
-    user_id: userId,
-    reservation_id: reservation.id,
-    amount: option.price,
-    method: "pix",
-    status: "paid",
-  });
-
-  return reservation;
+  return {
+    id: data.id,
+    code: data.code,
+    fullName: data.full_name,
+    plate: data.plate,
+    destination: data.destination,
+    arrivalAt: data.arrival_at,
+    status: data.status,
+    lotName: option.name,
+    lotAddress: option.address,
+  };
 }
 
 export interface SessionUser {
