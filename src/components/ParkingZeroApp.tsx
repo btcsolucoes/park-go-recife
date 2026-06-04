@@ -5,15 +5,15 @@ import {
   MapPin, Search, Navigation2, Bike, Footprints, Bus, Car, Clock, Leaf,
   DollarSign, Star, ChevronRight, ArrowLeft, Locate, Layers, Menu,
   TrendingUp, Award, Zap, Settings, User, Bell, Check, CircleParking,
-  Route as RouteIcon, LogOut, Loader2,
+  Route as RouteIcon, LogOut, Loader2, Ticket as TicketIcon, AlertTriangle, Copy,
 } from "lucide-react";
 import {
   DESTINATIONS, useParkingLots, useSessionUser, useUserMetrics,
-  signIn, signUp, signOut, createTrip,
-  type ParkingOption, type Modal,
+  signIn, signUp, signOut, createTicket,
+  type ParkingOption, type Modal, type Ticket,
 } from "@/lib/parking-api";
 
-type Screen = "splash" | "auth" | "map" | "search" | "results" | "compare" | "route" | "dashboard";
+type Screen = "splash" | "auth" | "map" | "search" | "results" | "compare" | "route" | "ticket" | "dashboard";
 
 const modalIcon = (m: Modal, className = "h-4 w-4") => {
   switch (m) {
