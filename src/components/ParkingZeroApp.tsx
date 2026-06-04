@@ -553,22 +553,26 @@ function Compare({ lots, onBack, onSelect }: { lots: ParkingOption[]; onBack: ()
 
 /* ---------------- ROUTE ---------------- */
 function RouteScreen({
-  option, destination, user, onBack, onFinish,
+  option, destination, user, onBack, onGenerateTicket,
 }: {
   option: ParkingOption; destination: string;
   user: { id: string } | null;
-  onBack: () => void; onFinish: () => void | Promise<void>;
+  onBack: () => void;
+  onGenerateTicket: (input: { plate: string }) => void | Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
+  const [plate, setPlate] = useState("");
   const steps = [
     { icon: <Car className="h-4 w-4" />, label: `Dirigir até ${option.name}`, time: option.driveTime, color: "bg-primary text-white" },
-    { icon: <CircleParking className="h-4 w-4" />, label: `Estacionar (R$${option.price})`, time: 2, color: "bg-brand text-primary" },
+    { icon: <CircleParking className="h-4 w-4" />, label: `Estacionar no local`, time: 2, color: "bg-brand text-primary" },
     { icon: modalIcon(option.modal, "h-4 w-4"), label: `${option.modalLabel} até o destino`, time: option.modalTime, color: "bg-accent text-primary" },
   ];
 
+  const plateValid = /^[A-Za-z]{3}[-\s]?\d[A-Za-z0-9]\d{2}$/.test(plate.trim());
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="min-h-dvh flex flex-col">
-      <div className="relative h-[42vh]">
+      <div className="relative h-[36vh]">
         <MapCanvas pins={[option]} route={{ from: { x: 50, y: 70 }, via: option.coords, to: { x: 70, y: 80 } }} />
         <button onClick={onBack} className="absolute top-6 left-4 glass h-11 w-11 rounded-full flex items-center justify-center shadow-soft">
           <ArrowLeft className="h-5 w-5 text-primary" />
@@ -588,12 +592,12 @@ function RouteScreen({
             <p className="text-xs text-muted-foreground">para {destination}</p>
           </div>
           <div className="text-right">
-            <p className="text-2xl font-bold">R${option.price}</p>
-            <p className="text-[10px] text-muted-foreground">total</p>
+            <p className="text-2xl font-bold">{option.totalTime}<span className="text-sm">min</span></p>
+            <p className="text-[10px] text-muted-foreground">tempo total</p>
           </div>
         </div>
 
-        <div className="mt-5 space-y-3">
+        <div className="mt-4 space-y-2.5">
           {steps.map((s, i) => (
             <div key={i} className="flex items-center gap-3">
               <div className={`h-9 w-9 rounded-xl flex items-center justify-center ${s.color}`}>{s.icon}</div>
@@ -606,19 +610,115 @@ function RouteScreen({
           ))}
         </div>
 
-        <div className="mt-5 grid grid-cols-3 gap-2">
-          <Savings icon={<Clock className="h-4 w-4" />} label="Tempo" value={`-${option.totalTime}min`} />
-          <Savings icon={<DollarSign className="h-4 w-4" />} label="Economia" value={`-R$${Math.max(0, 35 - option.price)}`} />
-          <Savings icon={<Leaf className="h-4 w-4" />} label="CO₂" value={`-${option.co2Saved}kg`} />
+        <div className="mt-4">
+          <label className="text-xs font-semibold text-primary uppercase tracking-wider">Placa do veículo</label>
+          <input
+            value={plate}
+            onChange={(e) => setPlate(e.target.value.toUpperCase().slice(0, 8))}
+            placeholder="ABC1D23"
+            className="mt-1.5 w-full h-12 rounded-2xl border border-border bg-muted/40 px-4 font-mono tracking-widest text-center text-base uppercase focus:outline-none focus:ring-2 focus:ring-brand"
+          />
         </div>
 
-        <button onClick={async () => { setBusy(true); try { await onFinish(); } finally { setBusy(false); } }} disabled={busy}
-          className="mt-5 w-full bg-primary text-primary-foreground font-semibold py-4 rounded-2xl active:scale-[0.98] transition shadow-soft flex items-center justify-center gap-2 disabled:opacity-60">
-          {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Navigation2 className="h-5 w-5" />}
-          {user ? "Confirmar e pagar R$" + option.price : "Entrar para reservar"}
+        <div className="mt-3 flex gap-2 items-start rounded-xl bg-amber-50 border border-amber-200 p-3">
+          <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+          <p className="text-[11px] leading-snug text-amber-900">
+            Este ticket não garante vaga. A disponibilidade e o pagamento são confirmados diretamente no estacionamento.
+          </p>
+        </div>
+
+        <button
+          onClick={async () => { setBusy(true); try { await onGenerateTicket({ plate: plate.trim() }); } finally { setBusy(false); } }}
+          disabled={busy || !user || !plateValid}
+          className="mt-4 w-full bg-primary text-primary-foreground font-semibold py-4 rounded-2xl active:scale-[0.98] transition shadow-soft flex items-center justify-center gap-2 disabled:opacity-60">
+          {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <TicketIcon className="h-5 w-5" />}
+          {user ? "Gerar ticket de chegada" : "Entrar para gerar ticket"}
         </button>
       </div>
     </motion.div>
+  );
+}
+
+/* ---------------- TICKET ---------------- */
+function TicketScreen({
+  ticket, onBack, onDone,
+}: {
+  ticket: Ticket;
+  onBack: () => void;
+  onDone: () => void;
+}) {
+  const arrival = new Date(ticket.arrivalAt);
+  const arrivalLabel = arrival.toLocaleString("pt-BR", {
+    day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+  });
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(
+    `PARKINGZERO|${ticket.code}|${ticket.plate}|${ticket.lotName}`,
+  )}`;
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+      className="min-h-dvh bg-muted/40 flex flex-col">
+      <div className="gradient-navy text-white p-5 pt-6 pb-8 rounded-b-[28px]">
+        <div className="flex items-center justify-between">
+          <button onClick={onBack} className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center">
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <p className="text-xs uppercase tracking-widest opacity-80">Ticket de chegada</p>
+          <div className="w-10" />
+        </div>
+        <div className="mt-4 flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-amber-300 animate-pulse" />
+          <span className="text-xs uppercase tracking-wider font-semibold">Aguardando chegada</span>
+        </div>
+        <h2 className="text-2xl font-bold mt-1">{ticket.lotName}</h2>
+        <p className="text-xs opacity-80">{ticket.lotAddress}</p>
+      </div>
+
+      <div className="-mt-5 mx-4 bg-white rounded-3xl shadow-pop p-5">
+        <div className="flex justify-center">
+          <img src={qrUrl} alt="QR Code do ticket" className="h-44 w-44 rounded-xl border border-border" />
+        </div>
+        <div className="mt-3 flex items-center justify-center gap-2">
+          <p className="font-mono text-sm font-bold tracking-widest">{ticket.code}</p>
+          <button
+            onClick={() => { navigator.clipboard.writeText(ticket.code); toast.success("Código copiado"); }}
+            className="h-7 w-7 rounded-md bg-muted flex items-center justify-center text-muted-foreground hover:text-primary">
+            <Copy className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
+          <TicketField label="Motorista" value={ticket.fullName} />
+          <TicketField label="Placa" value={ticket.plate} mono />
+          <TicketField label="Destino" value={ticket.destination} />
+          <TicketField label="Chegada prevista" value={arrivalLabel} />
+        </div>
+
+        <div className="mt-4 flex gap-2 items-start rounded-xl bg-amber-50 border border-amber-200 p-3">
+          <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+          <p className="text-[11px] leading-snug text-amber-900">
+            Este ticket não garante vaga. A disponibilidade e o pagamento são confirmados diretamente no estacionamento.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-auto p-5">
+        <button onClick={onDone}
+          className="w-full bg-brand text-primary font-semibold py-4 rounded-2xl active:scale-[0.98] transition shadow-soft flex items-center justify-center gap-2">
+          <Check className="h-5 w-5" />
+          Ver meu impacto
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+function TicketField({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="rounded-xl bg-muted/50 p-3">
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</p>
+      <p className={`text-sm font-semibold mt-0.5 ${mono ? "font-mono tracking-widest" : ""}`}>{value}</p>
+    </div>
   );
 }
 
