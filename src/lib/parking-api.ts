@@ -51,7 +51,7 @@ const PRIVATE_RECIFE_ANTIGO_LOTS: ParkingOption[] = [
     co2Saved: 1.2,
     badge: "Marco Zero",
     coords: { x: 54, y: 66 },
-    location: { lat: -8.0640141, lng: -34.8740818 },
+    location: { lat: -8.0631, lng: -34.8742 },
     curated: true,
   },
   {
@@ -71,7 +71,7 @@ const PRIVATE_RECIFE_ANTIGO_LOTS: ParkingOption[] = [
     co2Saved: 1,
     badge: "Rua do Apolo",
     coords: { x: 63, y: 60 },
-    location: { lat: -8.0608705, lng: -34.8727021 },
+    location: { lat: -8.0599, lng: -34.8731 },
     curated: true,
   },
   {
@@ -91,7 +91,7 @@ const PRIVATE_RECIFE_ANTIGO_LOTS: ParkingOption[] = [
     co2Saved: 1.1,
     badge: "Cais do Apolo",
     coords: { x: 66, y: 35 },
-    location: { lat: -8.0554, lng: -34.8722 },
+    location: { lat: -8.0563036, lng: -34.8728048 },
     curated: true,
   },
   {
@@ -131,13 +131,13 @@ const PRIVATE_RECIFE_ANTIGO_LOTS: ParkingOption[] = [
     co2Saved: 1.2,
     badge: "Mais central",
     coords: { x: 58, y: 78 },
-    location: { lat: -8.0649155, lng: -34.8738084 },
+    location: { lat: -8.0665077, lng: -34.8728982 },
     curated: true,
   },
   {
     id: "curated-porto-marco-zero",
-    name: "Estacionamento Porto / Armazéns do Porto",
-    address: "Avenida Alfredo Lisboa — Marco Zero",
+    name: "Estacionamento Porto Recife",
+    address: "Avenida Alfredo Lisboa, 2 — Marco Zero",
     price: null,
     spotsAvailable: 52,
     spotsTotal: 110,
@@ -151,12 +151,76 @@ const PRIVATE_RECIFE_ANTIGO_LOTS: ParkingOption[] = [
     co2Saved: 1.2,
     badge: "Marco Zero",
     coords: { x: 74, y: 70 },
-    location: { lat: -8.0632, lng: -34.8702 },
+    location: { lat: -8.0633, lng: -34.87085 },
+    curated: true,
+  },
+  {
+    id: "curated-neto-park",
+    name: "Neto Park",
+    address: "Rua Bernardo Vieira de Melo — Recife Antigo",
+    price: null,
+    spotsAvailable: 28,
+    spotsTotal: 50,
+    distanceKm: 0.5,
+    modal: "walk",
+    modalLabel: "Caminhada",
+    modalTime: 6,
+    driveTime: 7,
+    totalTime: 13,
+    rating: 4.4,
+    co2Saved: 1,
+    badge: "OSM",
+    coords: { x: 69, y: 49 },
+    location: { lat: -8.0592307, lng: -34.8710491 },
     curated: true,
   },
 ];
 
 const FALLBACK_AVERAGE_HOURLY_PRICE = 15;
+const RECIFE_ANTIGO_BOUNDS = {
+  north: -8.052,
+  south: -8.0688,
+  west: -34.8798,
+  east: -34.8685,
+};
+
+const KNOWN_LOT_LOCATIONS: Array<{
+  match: string[];
+  location: { lat: number; lng: number };
+}> = [
+  {
+    match: ["estacionamento recife antigo", "rio branco"],
+    location: { lat: -8.063, lng: -34.8746 },
+  },
+  {
+    match: ["paco alfandega", "alfandega"],
+    location: { lat: -8.0665077, lng: -34.8728982 },
+  },
+  {
+    match: ["anima estacionamentos", "vigario tenorio"],
+    location: { lat: -8.0631, lng: -34.8742 },
+  },
+  {
+    match: ["servau", "rua do apolo"],
+    location: { lat: -8.0599, lng: -34.8731 },
+  },
+  {
+    match: ["caape", "cais do apolo"],
+    location: { lat: -8.0563036, lng: -34.8728048 },
+  },
+  {
+    match: ["moinho recife", "sao jorge"],
+    location: { lat: -8.0588157, lng: -34.8706357 },
+  },
+  {
+    match: ["porto recife", "alfredo lisboa"],
+    location: { lat: -8.0633, lng: -34.87085 },
+  },
+  {
+    match: ["neto park", "bernardo vieira de melo"],
+    location: { lat: -8.0592307, lng: -34.8710491 },
+  },
+];
 
 function normalizeKey(value: string) {
   return value
@@ -164,6 +228,48 @@ function normalizeKey(value: string) {
     .replace(/\p{Diacritic}/gu, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "");
+}
+
+function normalizeSearch(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
+}
+
+function isInRecifeAntigo(location: { lat: number; lng: number }) {
+  return (
+    location.lat <= RECIFE_ANTIGO_BOUNDS.north &&
+    location.lat >= RECIFE_ANTIGO_BOUNDS.south &&
+    location.lng >= RECIFE_ANTIGO_BOUNDS.west &&
+    location.lng <= RECIFE_ANTIGO_BOUNDS.east
+  );
+}
+
+function knownLotLocation(name: string, address: string) {
+  const text = normalizeSearch(`${name} ${address}`);
+  return KNOWN_LOT_LOCATIONS.find((entry) =>
+    entry.match.some((term) => text.includes(normalizeSearch(term))),
+  )?.location;
+}
+
+function isRecifeAntigoLot(lot: ParkingOption) {
+  if (lot.curated) return true;
+  if (lot.location && isInRecifeAntigo(lot.location)) return true;
+
+  const text = normalizeSearch(`${lot.name} ${lot.address}`);
+  return [
+    "recife antigo",
+    "bairro do recife",
+    "rio branco",
+    "marco zero",
+    "cais do apolo",
+    "alfredo lisboa",
+    "rua do apolo",
+    "vigario tenorio",
+    "alfandega",
+    "bernardo vieira de melo",
+  ].some((term) => text.includes(term));
 }
 
 function averageHourlyPrice(lots: ParkingOption[]) {
@@ -189,11 +295,12 @@ function mergeParkingLots(remoteLots: ParkingOption[]) {
   const seen = new Set<string>();
   const merged: ParkingOption[] = [];
   const averagePrice = averageHourlyPrice(remoteLots);
+  const relevantRemoteLots = remoteLots.filter(isRecifeAntigoLot);
   const privateLotsWithAverage = PRIVATE_RECIFE_ANTIGO_LOTS.map((lot) =>
     applyAveragePrice(lot, averagePrice),
   );
 
-  for (const lot of [...remoteLots, ...privateLotsWithAverage]) {
+  for (const lot of [...relevantRemoteLots, ...privateLotsWithAverage]) {
     const key = `${normalizeKey(lot.name)}:${normalizeKey(lot.address)}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -218,10 +325,18 @@ function mapLot(
   const lat = hasLocation ? Number(row.latitude) : NaN;
   const lng = hasLocation ? Number(row.longitude) : NaN;
   const rawPrice = row.hourly_price == null ? null : Number(row.hourly_price);
+  const name = String(row.name);
+  const address = String(row.address);
+  const dbLocation =
+    Number.isFinite(lat) && Number.isFinite(lng) && isInRecifeAntigo({ lat, lng })
+      ? { lat, lng }
+      : undefined;
+  const location = knownLotLocation(name, address) ?? dbLocation;
+
   return {
     id,
-    name: String(row.name),
-    address: String(row.address),
+    name,
+    address,
     price: Number.isFinite(rawPrice) ? rawPrice : null,
     spotsAvailable: Math.max(0, total - reserved),
     spotsTotal: total,
@@ -235,7 +350,7 @@ function mapLot(
     co2Saved: Number(row.co2_saved_kg),
     badge: row.badge ? String(row.badge) : null,
     coords: { x: Number(row.map_x), y: Number(row.map_y) },
-    location: Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : undefined,
+    location,
   };
 }
 

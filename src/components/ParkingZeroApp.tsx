@@ -530,26 +530,12 @@ function Stat({ icon, value, label }: { icon: React.ReactNode; value: string; la
 type LatLng = { lat: number; lng: number };
 
 const RECIFE_MAP_CENTER: LatLng = { lat: -8.0631, lng: -34.8711 };
-const APPROX_MAP_BOUNDS = {
-  north: -8.034,
-  south: -8.087,
-  west: -34.91,
-  east: -34.853,
-};
 const TILE_SIZE = 256;
 
-function coordsToApproxLocation(coords: { x: number; y: number }): LatLng {
-  return {
-    lat:
-      APPROX_MAP_BOUNDS.north +
-      (coords.y / 100) * (APPROX_MAP_BOUNDS.south - APPROX_MAP_BOUNDS.north),
-    lng:
-      APPROX_MAP_BOUNDS.west + (coords.x / 100) * (APPROX_MAP_BOUNDS.east - APPROX_MAP_BOUNDS.west),
-  };
-}
+function lotLocation(lot: ParkingOption): LatLng | null {
+  if (!lot.location) return null;
 
-function lotLocation(lot: ParkingOption): LatLng {
-  return lot.location ?? coordsToApproxLocation(lot.coords);
+  return lot.location;
 }
 
 function projectPoint(point: LatLng, zoom: number) {
@@ -662,7 +648,10 @@ function MapCanvas({
 }) {
   const destinationLocation = destination ? { lat: destination.lat, lng: destination.lng } : null;
   const userLocation: LatLng = { lat: -8.0575, lng: -34.888 };
-  const pinLocations = pins.map(lotLocation);
+  const mappedPins = pins
+    .map((lot) => ({ lot, location: lotLocation(lot) }))
+    .filter((item): item is { lot: ParkingOption; location: LatLng } => item.location != null);
+  const pinLocations = mappedPins.map((item) => item.location);
   const center = averageCenter([
     ...(route ? [userLocation] : []),
     ...pinLocations,
@@ -670,11 +659,12 @@ function MapCanvas({
   ]);
   const zoom = destinationLocation ? 15 : 14;
   const tiles = tileGrid(center, zoom);
+  const routeLotLocation = mappedPins[0]?.location ?? null;
   const routePoints =
-    route && pins[0] && destinationLocation
+    route && routeLotLocation && destinationLocation
       ? {
           from: pixelOffset(userLocation, center, zoom),
-          via: pixelOffset(lotLocation(pins[0]), center, zoom),
+          via: pixelOffset(routeLotLocation, center, zoom),
           to: pixelOffset(destinationLocation, center, zoom),
         }
       : null;
@@ -707,11 +697,11 @@ function MapCanvas({
         </>
       )}
 
-      {pins.map((p) => (
+      {mappedPins.map(({ lot: p, location }) => (
         <div
           key={p.id}
           className="absolute -translate-x-1/2 -translate-y-full"
-          style={offsetStyle(pixelOffset(lotLocation(p), center, zoom))}
+          style={offsetStyle(pixelOffset(location, center, zoom))}
         >
           <div className="bg-primary text-white px-2.5 py-1.5 rounded-xl shadow-pop flex items-center gap-1.5 text-xs font-semibold">
             <CircleParking className="h-3.5 w-3.5 text-brand" />
@@ -1033,9 +1023,19 @@ function Results({
           >
             <ArrowLeft className="h-5 w-5 text-primary" />
           </button>
-          <div className="flex-1 glass rounded-2xl px-4 py-2.5 shadow-soft">
+          <div className="min-w-0 flex-1 overflow-hidden glass rounded-2xl px-4 py-2.5 shadow-soft">
             <p className="text-[10px] text-muted-foreground">Destino</p>
-            <p className="text-sm font-semibold truncate">{destination}</p>
+            <p
+              className="text-sm font-semibold leading-tight break-words"
+              style={{
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }}
+            >
+              {destination}
+            </p>
           </div>
         </div>
       </div>
