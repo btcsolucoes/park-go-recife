@@ -13,7 +13,7 @@
     "preview": "vite preview",
     "preview:cloudflare": "npm run build && npx wrangler pages dev dist",
     "deploy:cloudflare": "npm run build && npx wrangler pages deploy dist",
-    "deploy:cloudflare:ci": "npx wrangler deploy --config wrangler.jsonc",
+    "deploy:cloudflare:ci": "node scripts/prepare-cloudflare-assets.mjs && npx wrangler deploy --config wrangler.jsonc",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
