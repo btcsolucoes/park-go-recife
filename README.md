@@ -9,9 +9,10 @@ Use Cloudflare Pages Git integration with these settings:
 - Deploy command: `npm run deploy:cloudflare:ci`
 - Node version: `22.12.0` or newer
 
-Do not use `/` or `npx wrangler deploy` as a deploy command for Pages. `/` is treated as a
-shell command and fails with `Permission denied`; `npx wrangler deploy` targets Workers and
-triggers Wrangler's interactive TanStack setup.
+This Cloudflare project is configured as a Worker, not a Pages project. Do not use `/` or
+`npx wrangler pages deploy` as the deploy command for this Worker. `/` is treated as a shell
+command and fails with `Permission denied`; `wrangler pages deploy` needs Pages-specific token
+permissions that this Worker build token does not have.
 
 If you want to deploy manually from a local terminal, use:
 

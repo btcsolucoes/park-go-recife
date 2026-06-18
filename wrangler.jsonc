@@ -1,7 +1,10 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "park-go-recife",
-  "pages_build_output_dir": "./dist",
+  "main": "./dist/_worker.js/index.js",
   "compatibility_date": "2026-06-18",
-  "compatibility_flags": ["nodejs_compat"]
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist"
+  }
 }
