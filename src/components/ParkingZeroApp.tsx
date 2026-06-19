@@ -32,6 +32,7 @@ import {
   Ticket as TicketIcon,
   AlertTriangle,
   Copy,
+  QrCode,
 } from "lucide-react";
 import {
   DESTINATIONS,
@@ -61,6 +62,7 @@ type Screen =
   | "results"
   | "compare"
   | "route"
+  | "payment"
   | "ticket"
   | "dashboard";
 
@@ -105,6 +107,7 @@ export default function ParkingZeroApp() {
   const [destination, setDestination] = useState("");
   const [selectedDestination, setSelectedDestination] = useState<SelectedDestination | null>(null);
   const [selected, setSelected] = useState<ParkingOption | null>(null);
+  const [pendingPlate, setPendingPlate] = useState("");
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const { data: lots, loading: lotsLoading, reload: reloadLots } = useParkingLots();
   const { metrics, reload: reloadMetrics } = useUserMetrics(user?.id ?? null);
@@ -183,21 +186,35 @@ export default function ParkingZeroApp() {
               selectedDestination={selectedDestination}
               user={user}
               onBack={() => setScreen("results")}
-              onGenerateTicket={async ({ plate }) => {
+              onGenerateTicket={({ plate }) => {
                 if (!user) {
                   setScreen("auth");
                   return;
                 }
+                setPendingPlate(plate);
+                setScreen("payment");
+              }}
+            />
+          )}
+          {screen === "payment" && selected && user && (
+            <DemoPaymentScreen
+              key="pay"
+              option={selected}
+              destination={destinationLabel}
+              plate={pendingPlate}
+              fullName={user.fullName}
+              onBack={() => setScreen("route")}
+              onConfirm={async () => {
                 try {
                   const t = await createTicket({
                     userId: user.id,
                     fullName: user.fullName,
-                    plate,
+                    plate: pendingPlate,
                     option: selected,
                     destination: destinationLabel,
                   });
                   setTicket(t);
-                  toast.success("Ticket de chegada gerado");
+                  toast.success("Pagamento demo confirmado. Vaga reservada.");
                   await Promise.all([reloadLots(), reloadMetrics()]);
                   setScreen("ticket");
                 } catch (e) {
@@ -1393,8 +1410,8 @@ function RouteScreen({
         <div className="mt-3 flex gap-2 items-start rounded-xl bg-amber-50 border border-amber-200 p-3">
           <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
           <p className="text-[11px] leading-snug text-amber-900">
-            Este ticket não garante vaga. A disponibilidade e o pagamento são confirmados
-            diretamente no estacionamento.
+            Para a apresentação, o pagamento Pix será simulado no app. A vaga só aparece como
+            reservada depois da confirmação demo.
           </p>
         </div>
 
@@ -1411,7 +1428,131 @@ function RouteScreen({
           className="mt-4 w-full bg-primary text-primary-foreground font-semibold py-4 rounded-2xl active:scale-[0.98] transition shadow-soft flex items-center justify-center gap-2 disabled:opacity-60"
         >
           {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <TicketIcon className="h-5 w-5" />}
-          {user ? "Gerar ticket de chegada" : "Entrar para gerar ticket"}
+          {user ? "Gerar QR Code Pix demo" : "Entrar para reservar"}
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ---------------- PAYMENT DEMO ---------------- */
+function DemoPaymentScreen({
+  option,
+  destination,
+  plate,
+  fullName,
+  onBack,
+  onConfirm,
+}: {
+  option: ParkingOption;
+  destination: string;
+  plate: string;
+  fullName: string;
+  onBack: () => void;
+  onConfirm: () => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const amount = option.price == null ? null : option.price * ESTIMATED_PARKING_HOURS;
+  const paymentCode = [
+    "PARKINGZERO-DEMO",
+    option.id,
+    option.name,
+    plate.toUpperCase(),
+    amount == null ? "SEM_VALOR" : amount.toFixed(2),
+  ].join("|");
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=8&data=${encodeURIComponent(
+    paymentCode,
+  )}`;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
+      className="min-h-dvh bg-muted/40 flex flex-col"
+    >
+      <div className="gradient-navy text-white p-5 pt-6 pb-8 rounded-b-[28px]">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={onBack}
+            className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <p className="text-xs uppercase tracking-widest opacity-80">Pix demo</p>
+          <div className="w-10" />
+        </div>
+        <div className="mt-4 flex items-center gap-2">
+          <QrCode className="h-4 w-4 text-brand" />
+          <span className="text-xs uppercase tracking-wider font-semibold">
+            Pagamento de apresentação
+          </span>
+        </div>
+        <h2 className="text-2xl font-bold mt-1">
+          {amount == null ? "Valor a confirmar" : formatCurrency(amount)}
+        </h2>
+        <p className="text-xs opacity-80">
+          {option.name} · {ESTIMATED_PARKING_HOURS}h estimadas
+        </p>
+      </div>
+
+      <div className="-mt-5 mx-4 bg-white rounded-3xl shadow-pop p-5">
+        <div className="flex justify-center">
+          <img
+            src={qrUrl}
+            alt="QR Code Pix demo"
+            className="h-48 w-48 rounded-xl border border-border"
+          />
+        </div>
+
+        <div className="mt-4 rounded-2xl bg-muted/50 p-3">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+            Copia e cola demo
+          </p>
+          <p className="mt-1 break-all font-mono text-[11px] leading-relaxed">{paymentCode}</p>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(paymentCode);
+              toast.success("Código Pix demo copiado");
+            }}
+            className="mt-3 h-10 w-full rounded-xl bg-white border border-border text-sm font-semibold flex items-center justify-center gap-2"
+          >
+            <Copy className="h-4 w-4" />
+            Copiar código
+          </button>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+          <TicketField label="Motorista" value={fullName} />
+          <TicketField label="Placa" value={plate.toUpperCase()} mono />
+          <TicketField label="Destino" value={destination} />
+          <TicketField label="Estacionamento" value={option.name} />
+        </div>
+
+        <div className="mt-4 flex gap-2 items-start rounded-xl bg-emerald-50 border border-emerald-200 p-3">
+          <Check className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+          <p className="text-[11px] leading-snug text-emerald-900">
+            Modo gratuito para apresentação. O botão abaixo simula a confirmação do Pix e cria a
+            reserva no fluxo do app.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-auto p-5">
+        <button
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await onConfirm();
+            } finally {
+              setBusy(false);
+            }
+          }}
+          disabled={busy}
+          className="w-full bg-brand text-primary font-semibold py-4 rounded-2xl active:scale-[0.98] transition shadow-soft flex items-center justify-center gap-2 disabled:opacity-60"
+        >
+          {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
+          Confirmar Pix demo e reservar
         </button>
       </div>
     </motion.div>
@@ -1454,12 +1595,14 @@ function TicketScreen({
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <p className="text-xs uppercase tracking-widest opacity-80">Ticket de chegada</p>
+          <p className="text-xs uppercase tracking-widest opacity-80">Reserva confirmada</p>
           <div className="w-10" />
         </div>
         <div className="mt-4 flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-amber-300 animate-pulse" />
-          <span className="text-xs uppercase tracking-wider font-semibold">Aguardando chegada</span>
+          <span className="h-2 w-2 rounded-full bg-emerald-300" />
+          <span className="text-xs uppercase tracking-wider font-semibold">
+            Pix demo confirmado
+          </span>
         </div>
         <h2 className="text-2xl font-bold mt-1">{ticket.lotName}</h2>
         <p className="text-xs opacity-80">{ticket.lotAddress}</p>
@@ -1508,8 +1651,8 @@ function TicketScreen({
         <div className="mt-4 flex gap-2 items-start rounded-xl bg-amber-50 border border-amber-200 p-3">
           <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
           <p className="text-[11px] leading-snug text-amber-900">
-            Este ticket não garante vaga. A disponibilidade e o pagamento são confirmados
-            diretamente no estacionamento.
+            Reserva criada para a apresentação. Em produção, essa confirmação deve vir de um
+            provedor Pix real antes de liberar a vaga.
           </p>
         </div>
       </div>

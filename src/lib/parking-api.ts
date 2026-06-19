@@ -464,6 +464,7 @@ export function useUserMetrics(userId: string | null) {
 export interface Ticket {
   id: string;
   code: string;
+  reservationId?: string;
   fullName: string;
   plate: string;
   destination: string;
@@ -475,6 +476,8 @@ export interface Ticket {
   estimatedHours: number;
   estimatedTotal: number | null;
   priceEstimated: boolean;
+  paymentStatus?: "demo_paid" | "paid" | "pending";
+  demo?: boolean;
 }
 
 function generateTicketCode() {
@@ -523,6 +526,7 @@ export async function createTicket(opts: {
     return {
       id: `local-${code}`,
       code,
+      reservationId: `demo-${code}`,
       fullName,
       plate: plate.toUpperCase(),
       destination,
@@ -534,8 +538,42 @@ export async function createTicket(opts: {
       estimatedHours,
       estimatedTotal: option.price == null ? null : option.price * estimatedHours,
       priceEstimated: option.priceEstimated ?? false,
+      paymentStatus: "demo_paid",
+      demo: true,
     };
   }
+
+  if (option.spotsAvailable <= 0) {
+    throw new Error("Não há vagas disponíveis neste estacionamento agora.");
+  }
+
+  const estimatedTotal = option.price == null ? 0 : option.price * estimatedHours;
+  const startAt = new Date().toISOString();
+  const endAt = new Date(Date.now() + estimatedHours * 60 * 60 * 1000).toISOString();
+
+  const { data: reservation, error: reservationError } = await supabase
+    .from("reservations")
+    .insert({
+      user_id: userId,
+      lot_id: option.id,
+      destination,
+      start_at: startAt,
+      end_at: endAt,
+      status: "active",
+      total_price: estimatedTotal,
+    })
+    .select()
+    .single();
+  if (reservationError) throw reservationError;
+
+  const { error: paymentError } = await supabase.from("payments").insert({
+    user_id: userId,
+    reservation_id: reservation.id,
+    amount: estimatedTotal,
+    method: "pix",
+    status: "paid",
+  });
+  if (paymentError) throw paymentError;
 
   const { data, error } = await supabase
     .from("tickets")
@@ -559,6 +597,7 @@ export async function createTicket(opts: {
   return {
     id: data.id,
     code: data.code,
+    reservationId: reservation.id,
     fullName: data.full_name,
     plate: data.plate,
     destination: data.destination,
@@ -568,8 +607,10 @@ export async function createTicket(opts: {
     lotAddress: option.address,
     hourlyPrice: option.price,
     estimatedHours,
-    estimatedTotal: option.price == null ? null : option.price * estimatedHours,
+    estimatedTotal,
     priceEstimated: option.priceEstimated ?? false,
+    paymentStatus: "demo_paid",
+    demo: true,
   };
 }
 
